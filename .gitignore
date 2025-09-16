@@ -1,0 +1,6 @@
+.env
+old*
+config/
+gluetun/
+downloads/
+watch/

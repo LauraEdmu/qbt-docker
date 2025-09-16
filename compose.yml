@@ -1,0 +1,56 @@
+# docker-compose.yml
+services:
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - TZ=Europe/London
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}  # e.g. 10.x.y.z/32 from Proton .conf
+      # Optional server selection (pick one or leave unset)
+      # - SERVER_COUNTRIES=Netherlands
+      # - SERVER_CITIES=Amsterdam
+      # Optional: Proton port forwarding (improves seeding)
+      - PORT_FORWARDING=on
+      # If you know/learn the forwarded port and want the firewall to allow it:
+      # - FIREWALL_VPN_INPUT_PORTS=${QBT_PORT}
+    volumes:
+      - /srv/docker/qbt/gluetun:/gluetun
+    # Only gluetun exposes ports to the host. qBittorrent will share this network namespace.
+    ports:
+      - "8080:8080"            # qBittorrent WebUI (forwarded via gluetun)
+      - "${QBT_PORT}:${QBT_PORT}/tcp"  # BitTorrent listening port
+      - "${QBT_PORT}:${QBT_PORT}/udp"
+    restart: unless-stopped
+    mem_limit: 512M
+    memswap_limit: 4G
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    # Bind qBittorrent to the VPN's network namespace – prevents leaks.
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+      - WEBUI_PORT=8080
+      # Match qBittorrent's listen port to QBT_PORT (keep one source of truth)
+      - TORRENTING_PORT=${QBT_PORT}
+      - UMASK=002
+    volumes:
+      - /srv/docker/qbt/config:/config
+      - /srv/docker/qbt/downloads:/downloads
+      - /srv/docker/qbt/watch:/watch
+    # Do NOT publish ports here; gluetun does that.
+    restart: unless-stopped
+    mem_limit: 1G
+    memswap_limit: 4G
