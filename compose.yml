@@ -50,6 +50,7 @@ services:
       - /srv/docker/qbt/config:/config
       - /srv/docker/qbt/downloads:/downloads
       - /srv/docker/qbt/watch:/watch
+      - /srv/docker/qbt/torrentmeta:/torrentmeta
     # Do NOT publish ports here; gluetun does that.
     restart: unless-stopped
     mem_limit: 1G
